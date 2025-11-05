@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能公用房借用系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #1cc88a;
+            --accent-color: #36b9cc;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .time-slot {
+            cursor: pointer;
+            transition: all 0.3s;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        
+        .time-slot:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .time-slot.selected {
+            background-color: var(--secondary-color) !important;
+            color: white;
+        }
+        
+        .time-slot.booked {
+            background-color: #e74a3b !important;
+            color: white;
+            cursor: not-allowed;
+        }
+        
+        .login-container {
+            max-width: 450px;
+            margin: 80px auto;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background: white;
+        }
+        
+        .main-container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .time-slot {
+            padding: 12px 8px;
+            text-align: center;
+            background-color: #f8f9fc;
+            border: 1px solid #e3e6f0;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+        }
+        
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 15px 20px;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-success {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        .header-title {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .user-info {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+        }
+        
+        .room-card {
+            transition: all 0.3s;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .room-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .booking-table {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .booking-table th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .available {
+            background-color: var(--secondary-color);
+        }
+        
+        .booked-status {
+            background-color: #e74a3b;
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录页面 -->
+    <div id="loginPage" class="login-container">
+        <div class="text-center mb-4">
+            <h2 class="header-title">公用房借用系统</h2>
+            <p class="text-muted">请输入学号和姓名登录系统</p>
+        </div>
+        <form id="loginForm">
+            <div class="mb-3">
+                <label for="studentId" class="form-label">学号</label>
+                <input type="text" class="form-control" id="studentId" required placeholder="请输入学号">
+            </div>
+            <div class="mb-3">
+                <label for="studentName" class="form-label">姓名</label>
+                <input type="text" class="form-control" id="studentName" required placeholder="请输入姓名">
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">登录系统</button>
+        </form>
+        <div id="loginError" class="alert alert-danger mt-3 hidden"></div>
+    </div>
+
+    <!-- 主页面 -->
+    <div id="mainPage" class="main-container hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="header-title">公用房借用系统</h2>
+                <p class="text-muted mb-0">智能预约，高效管理</p>
+            </div>
+            <div class="d-flex align-items-center">
+                <span id="currentUser" class="user-info me-3"></span>
+                <button id="logoutBtn" class="btn btn-outline-secondary">退出登录</button>
+            </div>
+        </div>
+
+        <div class="card room-card">
+            <div class="card-header">
+                选择公用房和日期
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="roomSelect" class="form-label fw-bold">选择公用房</label>
+                        <select class="form-select" id="roomSelect">
+                            <option value="room1">紫菘7栋一楼东公房</option>
+                            <option value="room2">紫菘7栋三楼东公房</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="dateSelect" class="form-label fw-bold">选择日期</label>
+                        <input type="date" class="form-control" id="dateSelect">
+                    </div>
+                </div>
+                <button id="loadScheduleBtn" class="btn btn-primary mt-3 px-4">
+                    <i class="me-2">📅</i> 加载借用记录
+                </button>
+            </div>
+        </div>
+
+        <div id="scheduleSection" class="hidden">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>借用时段选择</span>
+                    <div class="small">
+                        <span class="me-3"><span class="status-indicator available"></span> 可预约</span>
+                        <span><span class="status-indicator booked-status"></span> 已预约</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="calendar-grid" id="timeSlots">
+                        <!-- 时段选择区域将通过JavaScript动态生成 -->
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label for="reasonInput" class="form-label fw-bold">借用原因</label>
+                        <textarea class="form-control" id="reasonInput" rows="3" placeholder="请详细说明借用公用房的原因..."></textarea>
+                    </div>
+                    
+                    <button id="submitBookingBtn" class="btn btn-success mt-3 px-4">
+                        <i class="me-2">✓</i> 提交借用申请
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    当前借用记录
+                </div>
+                <div class="card-body">
+                    <div id="bookingRecords">
+                        <!-- 借用记录将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 模拟数据库 - 使用localStorage存储数据
+        const STORAGE_KEYS = {
+            USERS: 'roomBookingUsers',
+            BOOKINGS: 'roomBookingData'
+        };
+
+        // 初始化数据
+        function initializeData() {
+            // 初始化用户数据（模拟已授权用户）
+            if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
+                const users = [
+                    { studentId: 'U202411886', name: '骆子晴' },
+                    { studentId: 'U202411853', name: '龙致远' }
+                ];
+                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+            }
+            
+            // 初始化借用记录
+            if (!localStorage.getItem(STORAGE_KEYS.BOOKINGS)) {
+                const bookings = {};
+                localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(bookings));
+            }
+        }
+
+        // 用户认证
+        function authenticateUser(studentId, name) {
+            const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS));
+            return users.some(user => user.studentId === studentId && user.name === name);
+        }
+
+        // 获取借用记录
+        function getBookings(room, date) {
+            const bookings = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
+            const key = `${room}_${date}`;
+            return bookings[key] || {};
+        }
+
+        // 保存借用记录
+        function saveBooking(room, date, timeSlot, studentId, studentName, reason) {
+            const bookings = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
+            const key = `${room}_${date}`;
+            
+            if (!bookings[key]) {
+                bookings[key] = {};
+            }
+            
+            bookings[key][timeSlot] = {
+                studentId,
+                studentName,
+                reason,
+                bookingTime: new Date().toISOString()
+            };
+            
+            localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(bookings));
+        }
+
+        // 生成时段选择
+        function generateTimeSlots(bookings) {
+            const timeSlotsContainer = document.getElementById('timeSlots');
+            timeSlotsContainer.innerHTML = '';
+            
+            // 生成8:00-22:00的时段，每2小时一个
+            for (let hour = 8; hour <= 20; hour += 2) {
+                const timeSlot = `${hour.toString().padStart(2, '0')}:00-${(hour + 2).toString().padStart(2, '0')}:00`;
+                const isBooked = bookings.hasOwnProperty(timeSlot);
+                
+                const timeSlotElement = document.createElement('div');
+                timeSlotElement.className = `time-slot ${isBooked ? 'booked' : ''}`;
+                timeSlotElement.textContent = timeSlot;
+                timeSlotElement.dataset.time = timeSlot;
+                
+                if (!isBooked) {
+                    timeSlotElement.addEventListener('click', function() {
+                        this.classList.toggle('selected');
+                    });
+                } else {
+                    timeSlotElement.title = `已被 ${bookings[timeSlot].studentName} 借用\n原因: ${bookings[timeSlot].reason}`;
+                }
+                
+                timeSlotsContainer.appendChild(timeSlotElement);
+            }
+        }
+
+        // 显示借用记录
+        function displayBookingRecords(bookings) {
+            const recordsContainer = document.getElementById('bookingRecords');
+            
+            if (Object.keys(bookings).length === 0) {
+                recordsContainer.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无借用记录</p></div>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-hover booking-table"><thead><tr><th>时段</th><th>借用人</th><th>学号</th><th>借用原因</th></tr></thead><tbody>';
+            
+            Object.keys(bookings).sort().forEach(timeSlot => {
+                const booking = bookings[timeSlot];
+                html += `<tr>
+                    <td><strong>${timeSlot}</strong></td>
+                    <td>${booking.studentName}</td>
+                    <td>${booking.studentId}</td>
+                    <td>${booking.reason}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            recordsContainer.innerHTML = html;
+        }
+
+        // DOM加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeData();
+            
+            // 登录表单提交
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const studentId = document.getElementById('studentId').value;
+                const studentName = document.getElementById('studentName').value;
+                
+                if (authenticateUser(studentId, studentName)) {
+                    // 登录成功
+                    document.getElementById('loginPage').classList.add('hidden');
+                    document.getElementById('mainPage').classList.remove('hidden');
+                    document.getElementById('currentUser').textContent = `${studentName} (${studentId})`;
+                    
+                    // 存储当前用户信息
+                    sessionStorage.setItem('currentUser', JSON.stringify({
+                        studentId,
+                        studentName
+                    }));
+                    
+                    // 设置日期选择器的最小值为今天
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('dateSelect').min = today;
+                    document.getElementById('dateSelect').value = today;
+                } else {
+                    // 登录失败
+                    document.getElementById('loginError').textContent = '学号或姓名不正确，请重试';
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+            });
+            
+            // 退出登录
+            document.getElementById('logoutBtn').addEventListener('click', function() {
+                sessionStorage.removeItem('currentUser');
+                document.getElementById('mainPage').classList.add('hidden');
+                document.getElementById('loginPage').classList.remove('hidden');
+                document.getElementById('loginForm').reset();
+                document.getElementById('loginError').classList.add('hidden');
+            });
+            
+            // 加载借用记录
+            document.getElementById('loadScheduleBtn').addEventListener('click', function() {
+                const room = document.getElementById('roomSelect').value;
+                const date = document.getElementById('dateSelect').value;
+                
+                if (!date) {
+                    alert('请选择日期');
+                    return;
+                }
+                
+                const bookings = getBookings(room, date);
+                generateTimeSlots(bookings);
+                displayBookingRecords(bookings);
+                
+                document.getElementById('scheduleSection').classList.remove('hidden');
+            });
+            
+            // 提交借用申请
+            document.getElementById('submitBookingBtn').addEventListener('click', function() {
+                const room = document.getElementById('roomSelect').value;
+                const date = document.getElementById('dateSelect').value;
+                const reason = document.getElementById('reasonInput').value;
+                
+                if (!date) {
+                    alert('请先选择日期并加载借用记录');
+                    return;
+                }
+                
+                const selectedTimeSlots = document.querySelectorAll('.time-slot.selected');
+                
+                if (selectedTimeSlots.length === 0) {
+                    alert('请选择至少一个时段');
+                    return;
+                }
+                
+                if (!reason.trim()) {
+                    alert('请输入借用原因');
+                    return;
+                }
+                
+                const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+                
+                // 检查是否有时段在用户选择期间被其他人预约
+                const currentBookings = getBookings(room, date);
+                const conflicts = [];
+                
+                selectedTimeSlots.forEach(slot => {
+                    const timeSlot = slot.dataset.time;
+                    if (currentBookings[timeSlot]) {
+                        conflicts.push(timeSlot);
+                    }
+                });
+                
+                if (conflicts.length > 0) {
+                    alert(`以下时段已被其他人预约: ${conflicts.join(', ')}，请重新选择`);
+                    // 重新加载借用记录
+                    const updatedBookings = getBookings(room, date);
+                    generateTimeSlots(updatedBookings);
+                    return;
+                }
+                
+                // 保存借用记录
+                selectedTimeSlots.forEach(slot => {
+                    const timeSlot = slot.dataset.time;
+                    saveBooking(room, date, timeSlot, currentUser.studentId, currentUser.studentName, reason);
+                });
+                
+                alert('借用申请提交成功！');
+                
+                // 重置表单
+                document.getElementById('reasonInput').value = '';
+                
+                // 更新显示
+                const updatedBookings = getBookings(room, date);
+                generateTimeSlots(updatedBookings);
+                displayBookingRecords(updatedBookings);
+            });
+        });
+    </script>
+</body>
+</html>
